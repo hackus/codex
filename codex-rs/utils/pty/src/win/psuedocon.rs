@@ -49,6 +49,7 @@ use winapi::shared::winerror::HRESULT;
 use winapi::shared::winerror::S_OK;
 use winapi::um::handleapi::*;
 use winapi::um::processthreadsapi::*;
+use winapi::um::winbase::CREATE_NO_WINDOW;
 use winapi::um::winbase::CREATE_UNICODE_ENVIRONMENT;
 use winapi::um::winbase::EXTENDED_STARTUPINFO_PRESENT;
 use winapi::um::winbase::STARTF_USESTDHANDLES;
@@ -196,7 +197,7 @@ impl PsuedoCon {
                 ptr::null_mut(),
                 ptr::null_mut(),
                 0,
-                EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+                EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW,
                 env_block.as_mut_ptr() as *mut _,
                 cwd.as_ref().map_or(ptr::null(), std::vec::Vec::as_ptr),
                 &mut si.StartupInfo,

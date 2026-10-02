@@ -126,6 +126,12 @@ impl PowershellParserProcess {
             .stdout(Stdio::piped())
             .stderr(Stdio::null());
         codex_protocol::shell_environment::scrub_non_inheritable_env_vars(&mut command);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
         let mut child = command.spawn()?;
         let stdin = match take_child_stdin(&mut child) {
             Ok(stdin) => stdin,
@@ -271,6 +277,62 @@ mod tests {
     use super::*;
     use crate::powershell::try_find_powershell_executable_blocking;
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn parser_process_has_no_console_window_from_detached_parent() {
+        use std::os::windows::process::CommandExt;
+
+        const CHILD_MARKER: &str = "CODEX_POWERSHELL_PARSER_CONSOLE_TEST";
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+
+        if std::env::var_os(CHILD_MARKER).is_none() {
+            let output = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "parser_process_has_no_console_window_from_detached_parent",
+                    "--test-threads=1",
+                    "--nocapture",
+                ])
+                .env(CHILD_MARKER, "1")
+                .creation_flags(DETACHED_PROCESS)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "detached parser test failed: {}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr),
+            );
+            return;
+        }
+
+        let powershell = try_find_powershell_executable_blocking()
+            .expect("PowerShell is required for the detached parser regression");
+        let mut parser =
+            PowershellParserProcess::spawn(powershell.as_path().to_str().unwrap()).unwrap();
+        assert_eq!(
+            parser.parse("Get-Location").unwrap(),
+            PowershellParseOutcome::Commands(vec![vec!["Get-Location".to_string()]]),
+        );
+
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn AttachConsole(process_id: u32) -> i32;
+            fn FreeConsole() -> i32;
+            fn GetConsoleWindow() -> *mut std::ffi::c_void;
+        }
+
+        let attached = unsafe { AttachConsole(parser.child.id()) };
+        if attached == 0 {
+            assert_eq!(std::io::Error::last_os_error().raw_os_error(), Some(6));
+        } else {
+            let window = unsafe { GetConsoleWindow() };
+            unsafe { FreeConsole() };
+            assert!(
+                window.is_null(),
+                "PowerShell parser created a console window"
+            );
+        }
+    }
 
     #[test]
     fn parser_process_handles_multiple_requests() {

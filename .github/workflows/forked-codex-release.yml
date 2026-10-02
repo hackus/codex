@@ -92,11 +92,11 @@ jobs:
           EOF
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" \
-              dist/forked-codex/codex.exe \
-              dist/forked-codex/codex-version.txt \
-              dist/forked-codex/LICENSE \
-              dist/forked-codex/NOTICE \
-              dist/forked-codex/forked-codex-manifest.json \
+              ../dist/forked-codex/codex.exe \
+              ../dist/forked-codex/codex-version.txt \
+              ../dist/forked-codex/LICENSE \
+              ../dist/forked-codex/NOTICE \
+              ../dist/forked-codex/forked-codex-manifest.json \
               --repo "$GITHUB_REPOSITORY" \
               --clobber
             gh release edit "$RELEASE_TAG" \
@@ -106,11 +106,11 @@ jobs:
               --latest
           else
             gh release create "$RELEASE_TAG" \
-              dist/forked-codex/codex.exe \
-              dist/forked-codex/codex-version.txt \
-              dist/forked-codex/LICENSE \
-              dist/forked-codex/NOTICE \
-              dist/forked-codex/forked-codex-manifest.json \
+              ../dist/forked-codex/codex.exe \
+              ../dist/forked-codex/codex-version.txt \
+              ../dist/forked-codex/LICENSE \
+              ../dist/forked-codex/NOTICE \
+              ../dist/forked-codex/forked-codex-manifest.json \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "Forked Codex $CODEX_VERSION Windows PowerShell parser console fix" \

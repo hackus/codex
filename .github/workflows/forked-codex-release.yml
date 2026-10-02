@@ -1,0 +1,69 @@
+name: forked-codex-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create or update"
+        required: true
+        default: "forked-windows-powershell-parser-console"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and release forked Windows Codex
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: codex-rs
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build codex.exe
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LIBSQLITE3_FLAGS=SQLITE_DISABLE_INTRINSIC
+          STABLE_GIT_COMMIT="$(git rev-parse HEAD)"
+          export STABLE_GIT_COMMIT
+          cargo build --target x86_64-pc-windows-msvc --release --bin codex
+
+      - name: Stage release assets
+        shell: pwsh
+        run: |
+          $assetDir = Join-Path $env:GITHUB_WORKSPACE "dist/forked-codex"
+          New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
+          Copy-Item -LiteralPath "$env:GITHUB_WORKSPACE/codex-rs/target/x86_64-pc-windows-msvc/release/codex.exe" -Destination "$assetDir/codex.exe"
+          & "$assetDir/codex.exe" --version | Out-File -FilePath "$assetDir/codex-version.txt" -Encoding utf8
+          @{
+            patch = "windows-powershell-parser-console"
+            commit = "${{ github.sha }}"
+            branch = "${{ github.ref_name }}"
+            asset = "codex.exe"
+          } | ConvertTo-Json | Out-File -FilePath "$assetDir/forked-codex-manifest.json" -Encoding utf8
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: Forked Codex Windows PowerShell parser console fix
+          body: |
+            Temporary Windows Codex build from hackus/codex with the PowerShell parser console fix.
+
+            H-Codex downloads `codex.exe` from this release when users run `/switch_to_forked_codex`.
+            Users can return to the official Codex install with `/switch_to_official_codex`.
+          files: |
+            dist/forked-codex/codex.exe
+            dist/forked-codex/codex-version.txt
+            dist/forked-codex/forked-codex-manifest.json
+          overwrite_files: true
+          make_latest: true

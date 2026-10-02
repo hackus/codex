@@ -1,0 +1,24 @@
+name: fork-ci
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/fork-ci.yml"
+      - ".github/workflows/forked-codex-release.yml"
+  workflow_dispatch:
+
+jobs:
+  workflow-syntax:
+    name: Fork workflow syntax
+    if: github.repository == 'hackus/codex'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Parse fork workflows
+        run: |
+          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path); puts "parsed #{path}" }' \
+            .github/workflows/fork-ci.yml \
+            .github/workflows/forked-codex-release.yml

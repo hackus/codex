@@ -29,48 +29,20 @@ impl Drop for KillGitProcessTreeOnDrop {
     }
 }
 
-fn spawn_git_command(command: &mut Command) -> Option<(Child, KillGitProcessTreeOnDrop)> {
-    scrub_non_inheritable_env_vars(command.as_std_mut());
+#[cfg(windows)]
+fn log_windows_diagnostic(message: &str) {
+    use std::fs::OpenOptions;
+    use std::io::Write;
 
-    #[cfg(unix)]
-    command.process_group(0);
+    let path = std::env::temp_dir().join("codex-git-diag.txt");
 
-    command.kill_on_drop(true);
-
-    command
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    #[cfg(windows)]
+    if let Ok(mut file) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
     {
-        dump_windows_console_state();
+        let _ = writeln!(file, "{message}");
     }
-
-    #[cfg(windows)]
-    let (child, job) = JobObject::spawn_background(command).ok()?;
-
-    #[cfg(not(windows))]
-    let child = command.spawn().ok()?;
-
-    #[cfg(windows)]
-    eprintln!(
-        "[CODEX-GIT-DIAG] spawned git child pid={:?}",
-        child.id()
-    );
-
-    let process_tree = KillGitProcessTreeOnDrop {
-        #[cfg(unix)]
-        process_id: child.id()?,
-
-        #[cfg(windows)]
-        job,
-
-        #[cfg(unix)]
-        armed: true,
-    };
-
-    Some((child, process_tree))
 }
 
 #[cfg(windows)]
@@ -96,16 +68,13 @@ fn dump_windows_console_state() {
         fn GetCurrentProcessId() -> u32;
     }
 
-    unsafe fn describe_handle(
-        name: &str,
-        handle_id: u32,
-    ) {
+    unsafe fn describe_handle(name: &str, handle_id: u32) {
         let handle = unsafe { GetStdHandle(handle_id) };
 
         if handle.is_null() {
-            eprintln!(
+            log_windows_diagnostic(&format!(
                 "[CODEX-GIT-DIAG] {name}: handle=NULL"
-            );
+            ));
             return;
         }
 
@@ -115,38 +84,82 @@ fn dump_windows_console_state() {
         let console_mode_result =
             unsafe { GetConsoleMode(handle, &mut mode) };
 
-        eprintln!(
+        log_windows_diagnostic(&format!(
             "[CODEX-GIT-DIAG] {name}: \
              handle={handle:p} \
              file_type={file_type} \
              console_mode_ok={} \
              console_mode=0x{mode:08x}",
             console_mode_result != 0
-        );
+        ));
     }
 
     unsafe {
         let pid = GetCurrentProcessId();
         let console_window = GetConsoleWindow();
 
-        eprintln!(
+        log_windows_diagnostic(
             "[CODEX-GIT-DIAG] ================================"
         );
-        eprintln!(
+
+        log_windows_diagnostic(&format!(
             "[CODEX-GIT-DIAG] Codex PID={pid}"
-        );
-        eprintln!(
+        ));
+
+        log_windows_diagnostic(&format!(
             "[CODEX-GIT-DIAG] GetConsoleWindow={console_window:p}"
-        );
+        ));
 
         describe_handle("STDIN ", STD_INPUT_HANDLE);
         describe_handle("STDOUT", STD_OUTPUT_HANDLE);
         describe_handle("STDERR", STD_ERROR_HANDLE);
 
-        eprintln!(
+        log_windows_diagnostic(
             "[CODEX-GIT-DIAG] ================================"
         );
     }
+}
+
+fn spawn_git_command(command: &mut Command) -> Option<(Child, KillGitProcessTreeOnDrop)> {
+    scrub_non_inheritable_env_vars(command.as_std_mut());
+
+    #[cfg(unix)]
+    command.process_group(0);
+
+    command.kill_on_drop(true);
+
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    #[cfg(windows)]
+    dump_windows_console_state();
+
+    #[cfg(windows)]
+    let (child, job) = JobObject::spawn_background(command).ok()?;
+
+    #[cfg(not(windows))]
+    let child = command.spawn().ok()?;
+
+    #[cfg(windows)]
+    log_windows_diagnostic(&format!(
+        "[CODEX-GIT-DIAG] spawned git child pid={:?}",
+        child.id()
+    ));
+
+    let process_tree = KillGitProcessTreeOnDrop {
+        #[cfg(unix)]
+        process_id: child.id()?,
+
+        #[cfg(windows)]
+        job,
+
+        #[cfg(unix)]
+        armed: true,
+    };
+
+    Some((child, process_tree))
 }
 
 async fn wait_for_git_command_with_timeout_output(
@@ -170,6 +183,7 @@ async fn wait_for_git_command_with_timeout_output(
             {
                 process_tree.armed = false;
             }
+
             Some(output)
         }
         _ => None,

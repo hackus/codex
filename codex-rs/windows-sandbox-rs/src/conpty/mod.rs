@@ -29,7 +29,6 @@ use windows_sys::Win32::Foundation::GetLastError;
 use windows_sys::Win32::Foundation::HANDLE;
 use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
 use windows_sys::Win32::System::Console::HPCON;
-use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
 use windows_sys::Win32::System::Threading::CREATE_UNICODE_ENVIRONMENT;
 use windows_sys::Win32::System::Threading::CreateProcessAsUserW;
 use windows_sys::Win32::System::Threading::EXTENDED_STARTUPINFO_PRESENT;
@@ -160,7 +159,9 @@ pub fn spawn_conpty_process_as_user(
             std::ptr::null_mut(),
             std::ptr::null_mut(),
             0,
-            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW,
+            // The pseudoconsole attribute supplies the console. CREATE_NO_WINDOW
+            // can prevent descendants from inheriting that console.
+            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
             env_block.as_ptr() as *mut c_void,
             to_wide(cwd).as_ptr(),
             &si.StartupInfo,

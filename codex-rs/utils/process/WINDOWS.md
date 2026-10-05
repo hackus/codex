@@ -35,8 +35,9 @@ must retain `CREATE_NO_WINDOW` when adding suspension or falling back.
   runner logon, and registered runtime removal already suppress console windows.
 - Plugin Git/npm operations, auth/credential helpers, exec-server transport,
   taskkill, rollout search, and doctor helpers already use the shared helper.
-- Both raw ConPTY launch sites retain the fork's existing fixes. PTY creation
-  and lifecycle are separate from ordinary background process construction.
+- Raw ConPTY launches attach through the pseudoconsole attribute, without
+  CREATE_NO_WINDOW. That flag is for background pipe processes and can break
+  console inheritance by descendants of a pseudoconsole client.
 
 ## Intentional direct launches
 

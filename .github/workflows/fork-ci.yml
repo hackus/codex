@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/workflows/fork-ci.yml"
       - ".github/workflows/forked-codex-release.yml"
+      - "codex-rs/utils/pty/**"
+      - "codex-rs/utils/process/**"
+      - "codex-rs/windows-sandbox-rs/src/conpty/**"
   workflow_dispatch:
 
 jobs:
@@ -22,3 +25,30 @@ jobs:
           ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path); puts "parsed #{path}" }' \
             .github/workflows/fork-ci.yml \
             .github/workflows/forked-codex-release.yml
+
+  windows-console-tests:
+    name: Windows console and ConPTY regressions
+    if: github.repository == 'hackus/codex'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: codex-rs
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Require Python for ConPTY descendant tests
+        run: python -c "import sys; print(sys.executable)"
+      - name: Test windowless background processes and ConPTY lifecycle
+        shell: pwsh
+        run: |
+          cargo test --locked -p codex-utils-process --lib
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p codex-utils-pty --lib console
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p codex-utils-pty --lib lifecycle_tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

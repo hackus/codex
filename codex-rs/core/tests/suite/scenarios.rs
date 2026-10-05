@@ -89,6 +89,15 @@ use tokio::sync::oneshot;
 
 const ONE_PIXEL_PNG_BASE64: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==";
 
+#[path = "scenarios_incremental_tools.rs"]
+mod incremental_tools;
+
+#[path = "scenarios_code_mode_settled_helpers_tests.rs"]
+mod code_mode_settled_helpers;
+
+#[path = "scenarios_strict_3p_cache.rs"]
+mod strict_3p_cache;
+
 #[path = "scenarios_agent_message_board.rs"]
 mod agent_message_board;
 
@@ -123,6 +132,9 @@ mod preparation;
 #[path = "scenarios_content_filter.rs"]
 mod content_filter;
 
+#[path = "scenarios_provider_capabilities.rs"]
+mod provider_capabilities;
+
 #[path = "scenarios_shared_instructions.rs"]
 mod shared_instructions;
 
@@ -134,6 +146,9 @@ mod tools_namespace_budget;
 
 #[path = "scenarios_skill_catalog_dedup.rs"]
 mod skill_catalog_dedup;
+
+#[path = "scenarios_compaction_tests.rs"]
+mod compaction;
 
 fn skills_extensions() -> Arc<ExtensionRegistry<Config>> {
     let mut extensions = ExtensionRegistryBuilder::<Config>::new();
@@ -1698,9 +1713,14 @@ async fn subagent_waits_for_its_inherited_environment_configuration() -> Result<
     use super::remote_env::spawn_tests::PendingSpawnCase;
     use super::remote_env::spawn_tests::pending_subagent_scenario;
 
-    let requests =
-        pending_subagent_scenario(PendingSpawnCase::TurnSettings, configure_scenario_catalog)
-            .await?;
+    let requests = pending_subagent_scenario(PendingSpawnCase::TurnSettings, |config| {
+        configure_scenario_catalog(config);
+        config
+            .features
+            .enable(Feature::StableEnvironmentTools)
+            .expect("enable stable environment tools");
+    })
+    .await?;
     let labels = [
         "parent delegates while the environment is starting",
         "parent waits for the worker",
@@ -1743,7 +1763,14 @@ async fn subagent_waits_for_its_inherited_environment_configuration() -> Result<
             .replace_all(&snapshot, replacement)
             .into_owned();
     }
-    insta::assert_snapshot!("subagent_inherits_pending_environment", snapshot);
+    // Windows guidance appears when the executor is ready, including under Wine.
+    let snapshot_name =
+        if core_test_support::test_target_os() == core_test_support::TestTargetOs::Windows {
+            "subagent_inherits_pending_environment_windows"
+        } else {
+            "subagent_inherits_pending_environment"
+        };
+    insta::assert_snapshot!(snapshot_name, snapshot);
     Ok(())
 }
 

@@ -26,6 +26,12 @@ pub(crate) enum ViewAction {
     OpenLink(String),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MouseMode {
+    Interactive,
+    Selection,
+}
+
 /// Transcript jumps shared with input routing so legacy terminals preserve their Alt modifier.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum JumpTarget {
@@ -135,6 +141,9 @@ impl TranscriptView {
         {
             return true;
         }
+        if self.copy_mode.is_some() {
+            return true;
+        }
         if self.selection.is_some() {
             return crate::text_selection::is_copy_key(key)
                 || code == KeyCode::Esc
@@ -149,7 +158,8 @@ impl TranscriptView {
         }
         self.search.is_active()
             && (code == KeyCode::Esc
-                || (code == KeyCode::Enter && self.is_search_editing())
+                || (code == KeyCode::Enter
+                    && (self.is_search_editing() || modifiers == KeyModifiers::NONE))
                 || (modifiers == KeyModifiers::NONE
                     && matches!(code, KeyCode::PageUp | KeyCode::PageDown))
                 || (modifiers == KeyModifiers::CONTROL
@@ -163,6 +173,9 @@ impl TranscriptView {
     ) -> Option<ViewAction> {
         if key.kind == KeyEventKind::Release {
             return None;
+        }
+        if let Some(action) = self.handle_copy_mode_key(key, cells) {
+            return Some(action);
         }
         if let Some(action) = self.handle_disclosure_key(key, cells) {
             return Some(action);
@@ -193,10 +206,31 @@ impl TranscriptView {
         event: MouseEvent,
         cells: &[Arc<dyn HistoryCell>],
     ) -> Option<ViewAction> {
-        if let Some(action) = self.handle_follow_control_mouse(event) {
+        self.handle_mouse_with_mode(event, cells, MouseMode::Interactive)
+    }
+
+    /// Handles selection and scrolling without activating transcript content.
+    pub(crate) fn handle_selection_mouse(
+        &mut self,
+        event: MouseEvent,
+        cells: &[Arc<dyn HistoryCell>],
+    ) -> Option<ViewAction> {
+        self.handle_mouse_with_mode(event, cells, MouseMode::Selection)
+    }
+
+    fn handle_mouse_with_mode(
+        &mut self,
+        event: MouseEvent,
+        cells: &[Arc<dyn HistoryCell>],
+        mode: MouseMode,
+    ) -> Option<ViewAction> {
+        if mode == MouseMode::Interactive
+            && let Some(action) = self.handle_follow_control_mouse(event)
+        {
             return Some(action);
         }
-        if event.kind == MouseEventKind::Down(MouseButton::Left)
+        if mode == MouseMode::Interactive
+            && event.kind == MouseEventKind::Down(MouseButton::Left)
             && event
                 .modifiers
                 .intersects(KeyModifiers::CONTROL | KeyModifiers::SUPER)
@@ -257,21 +291,28 @@ impl TranscriptView {
                     .filter(|text| !text.is_empty())
                     .map(ViewAction::Copy);
             }
-            MouseEventKind::Down(MouseButton::Left) => return self.pointer_down(event, cells),
+            MouseEventKind::Down(MouseButton::Left) => {
+                return self.pointer_down(event, cells, mode);
+            }
             MouseEventKind::Drag(MouseButton::Left) if dragging => {
                 self.extend_selection(event.column, event.row);
             }
             MouseEventKind::Up(MouseButton::Left) if dragging => {
                 // Open only a stationary click. Dragging back to the origin is still selection,
                 // and wheel scrolling clears the pointer even when it cannot move the viewport.
-                let link = self.selection.as_mut().and_then(|selection| {
-                    (inside
-                        && !selection.moved
-                        && selection.pointer == Some(ScreenPosition::new(event.column, event.row))
-                        && event.modifiers.is_empty())
-                    .then(|| selection.pressed_link.take())
-                    .flatten()
-                });
+                let link = if mode == MouseMode::Interactive {
+                    self.selection.as_mut().and_then(|selection| {
+                        (inside
+                            && !selection.moved
+                            && selection.pointer
+                                == Some(ScreenPosition::new(event.column, event.row))
+                            && event.modifiers.is_empty())
+                        .then(|| selection.pressed_link.take())
+                        .flatten()
+                    })
+                } else {
+                    None
+                };
                 let link = link.filter(|destination| {
                     self.link_at(event.column, event.row).as_ref() == Some(destination)
                 });
@@ -336,7 +377,7 @@ impl TranscriptView {
         self.handle_scroll_key(key, cells)
     }
 
-    fn handle_scroll_key(
+    pub(super) fn handle_scroll_key(
         &mut self,
         key: KeyEvent,
         cells: &[Arc<dyn HistoryCell>],
@@ -378,17 +419,22 @@ impl TranscriptView {
         &mut self,
         event: MouseEvent,
         cells: &[Arc<dyn HistoryCell>],
+        mode: MouseMode,
     ) -> Option<ViewAction> {
-        if event.modifiers.is_empty() && self.toggle_disclosure_at(cells, event.column, event.row) {
+        if mode == MouseMode::Interactive
+            && event.modifiers.is_empty()
+            && self.toggle_disclosure_at(cells, event.column, event.row)
+        {
             return Some(ViewAction::Changed);
         }
         self.disclosure.focused = None;
         let visible = self
             .visible
             .get(usize::from(event.row.checked_sub(self.area.y)?))?;
-        if event
-            .modifiers
-            .intersects(KeyModifiers::CONTROL | KeyModifiers::SUPER)
+        if mode == MouseMode::Interactive
+            && event
+                .modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::SUPER)
         {
             return self
                 .link_at(event.column, event.row)
@@ -413,7 +459,7 @@ impl TranscriptView {
         {
             return None;
         }
-        let link = (clicks == 1 && event.modifiers.is_empty())
+        let link = (mode == MouseMode::Interactive && clicks == 1 && event.modifiers.is_empty())
             .then(|| self.link_at(event.column, event.row))
             .flatten();
         self.begin_selection(cells, event.column, event.row, clicks);

@@ -116,6 +116,9 @@ pub enum Feature {
     DaemonAutoStart,
 
     // Experimental
+    /// Advertise enabled environment-backed tools and their shell parameters before the
+    /// executor is ready. Actual execution still requires a usable environment and its policy.
+    StableEnvironmentTools,
     /// Send per-content-entry classifications in internal Responses metadata.
     ContentItemKinds,
     /// Record model-attempted tool calls in internal Responses metadata.
@@ -132,6 +135,9 @@ pub enum Feature {
     CodeModeInterrupt,
     /// Restrict model-visible tools to code mode entrypoints (`exec`, `wait`).
     CodeModeOnly,
+    /// Keep eligible MCP/app and dynamic tools deferred in exec, only in Code Mode Only.
+    /// Ignores deferLoading, omit_tools_from, and namespace skip settings.
+    CodeModeOnlyStrictThirdPartyTools,
     /// Use the single unified PTY-backed exec tool.
     UnifiedExec,
     /// Allow unified exec commands to allocate an interactive terminal.
@@ -248,6 +254,8 @@ pub enum Feature {
     ToolSearchAlwaysDeferMcpTools,
     /// Describe deferred tool namespaces in the model-visible world state.
     DeferredToolWorldState,
+    /// Track top-level tool definitions in world state and emit incremental context updates.
+    IncrementalTools,
     /// Expose MCP model-visible namespaces without the legacy `mcp__` prefix.
     NonPrefixedMcpToolNames,
     /// Enable discoverable tool suggestions for apps.
@@ -1091,6 +1099,12 @@ pub const FEATURES: &[FeatureSpec] = &[
         default_enabled: false,
     },
     FeatureSpec {
+        id: Feature::StableEnvironmentTools,
+        key: "stable_environment_tools",
+        stage: Stage::UnderDevelopment,
+        default_enabled: false,
+    },
+    FeatureSpec {
         id: Feature::CodeMode,
         key: "code_mode",
         stage: Stage::UnderDevelopment,
@@ -1129,6 +1143,12 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::CodeModeOnly,
         key: "code_mode_only",
+        stage: Stage::UnderDevelopment,
+        default_enabled: false,
+    },
+    FeatureSpec {
+        id: Feature::CodeModeOnlyStrictThirdPartyTools,
+        key: "code_mode_only_strict_3p_tools",
         stage: Stage::UnderDevelopment,
         default_enabled: false,
     },
@@ -1475,6 +1495,12 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::DeferredToolWorldState,
         key: "deferred_tool_world_state",
+        stage: Stage::UnderDevelopment,
+        default_enabled: false,
+    },
+    FeatureSpec {
+        id: Feature::IncrementalTools,
+        key: "incremental_tools",
         stage: Stage::UnderDevelopment,
         default_enabled: false,
     },

@@ -31,8 +31,10 @@ impl Drop for KillGitProcessTreeOnDrop {
 
 fn spawn_git_command(command: &mut Command) -> Option<(Child, KillGitProcessTreeOnDrop)> {
     scrub_non_inheritable_env_vars(command.as_std_mut());
+
     #[cfg(unix)]
     command.process_group(0);
+
     command.kill_on_drop(true);
 
     command
@@ -41,15 +43,35 @@ fn spawn_git_command(command: &mut Command) -> Option<(Child, KillGitProcessTree
         .stderr(Stdio::piped());
 
     #[cfg(windows)]
-    let (child, job) = JobObject::spawn_background(command).ok()?;
+    let (child, job) = {
+        use std::os::windows::process::CommandExt;
+
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+        // Diagnostic:
+        // Bypass JobObject::spawn_background(), CREATE_SUSPENDED,
+        // AssignProcessToJobObject(), and NtResumeProcess().
+        //
+        // Spawn Git normally with only CREATE_NO_WINDOW.
+        command
+            .as_std_mut()
+            .creation_flags(CREATE_NO_WINDOW);
+
+        let child = command.spawn().ok()?;
+
+        (child, None)
+    };
+
     #[cfg(not(windows))]
     let child = command.spawn().ok()?;
 
     let process_tree = KillGitProcessTreeOnDrop {
         #[cfg(unix)]
         process_id: child.id()?,
+
         #[cfg(windows)]
         job,
+
         #[cfg(unix)]
         armed: true,
     };

@@ -11,6 +11,7 @@ workspace = true
 doctest = false
 
 [dependencies]
+codex-utils-process = { workspace = true }
 anyhow = { workspace = true }
 codex-git-utils = { workspace = true }
 codex-protocol = { workspace = true }

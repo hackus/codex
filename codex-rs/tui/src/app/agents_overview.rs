@@ -1167,11 +1167,13 @@ impl App {
                 } else {
                     current_executable
                 };
-                let output = tokio::process::Command::new(executable)
-                    .args(["app-server", "daemon", "start"])
-                    .output()
-                    .await
-                    .map_err(|error| error.to_string())?;
+                let output = tokio::process::Command::from(
+                    codex_utils_process::background_command(executable),
+                )
+                .args(["app-server", "daemon", "start"])
+                .output()
+                .await
+                .map_err(|error| error.to_string())?;
                 if output.status.success() {
                     Ok(())
                 } else {

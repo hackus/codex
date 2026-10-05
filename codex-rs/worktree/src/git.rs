@@ -140,7 +140,7 @@ pub fn default_worktree_base(cwd: &Path) -> Result<String> {
 }
 
 fn base_git_command(cwd: &Path) -> Command {
-    let mut command = Command::new("git");
+    let mut command = codex_utils_process::background_command("git");
     // Git wrappers export repository-local state to their children. Select this
     // repository from cwd, and install only our own per-command config below.
     for name in [

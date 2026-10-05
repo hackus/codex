@@ -11,6 +11,7 @@ doctest = false
 
 
 [dependencies]
+codex-utils-process = { workspace = true }
 codex-core = { path = "../core" }
 codex-http-client = { workspace = true }
 codex-model-provider-info = { path = "../model-provider-info" }

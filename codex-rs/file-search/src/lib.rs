@@ -257,7 +257,7 @@ pub async fn run_main<T: Reporter>(
                 .await?;
             #[cfg(windows)]
             {
-                Command::new("cmd")
+                Command::from(codex_utils_process::background_command("cmd"))
                     .arg("/c")
                     .arg(search_directory)
                     .stdout(std::process::Stdio::inherit())

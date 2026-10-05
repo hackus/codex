@@ -22,6 +22,41 @@ async fn background_commands_have_no_console_under_detached_parent() {
             eprintln!("background stderr");
         }
         Ok("detached") => {
+            // Exercise the shell descendants used by PowerShell discovery, batch
+            // shims, and background helpers, not just direct executable launches.
+            let mut cmd = background_command("cmd.exe");
+            cmd.args(["/d", "/s", "/c"])
+                .raw_arg(format!(
+                    "\"\"{}\" --exact {TEST_NAME} --nocapture\"",
+                    executable.display()
+                ))
+                .env(PHASE, "probe");
+            let output = cmd.output().expect("run cmd descendant");
+            assert!(output.status.success(), "cmd descendant failed: {output:?}");
+            assert!(String::from_utf8_lossy(&output.stdout).contains("background stdout"));
+            assert!(String::from_utf8_lossy(&output.stderr).contains("background stderr"));
+
+            let executable_literal = executable.display().to_string().replace('\'', "''");
+            let output = background_command("powershell.exe")
+                .args(["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"])
+                .arg(format!(
+                    "& '{executable_literal}' --exact '{TEST_NAME}' --nocapture; exit $LASTEXITCODE"
+                ))
+                .env(PHASE, "probe")
+                .output()
+                .expect("run PowerShell descendant");
+            assert!(
+                output.status.success(),
+                "PowerShell descendant failed: {output:?}"
+            );
+            assert!(String::from_utf8_lossy(&output.stdout).contains("background stdout"));
+            assert!(String::from_utf8_lossy(&output.stderr).contains("background stderr"));
+
+            let status = background_command("cmd.exe")
+                .args(["/d", "/c", "exit 23"])
+                .status()
+                .expect("run failing background command");
+            assert_eq!(status.code(), Some(23));
             for asynchronous in [false, true] {
                 let mut command = background_command(&executable);
                 command

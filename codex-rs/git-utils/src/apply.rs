@@ -125,7 +125,7 @@ pub fn apply_git_patch(req: &ApplyGitRequest) -> io::Result<ApplyGitResult> {
 }
 
 fn resolve_git_root(cwd: &Path) -> io::Result<PathBuf> {
-    let mut command = std::process::Command::new("git");
+    let mut command = codex_utils_process::background_command("git");
     command
         .args(["-c", crate::SAFE_BARE_REPOSITORY_CONFIG])
         .arg("rev-parse")
@@ -153,7 +153,7 @@ fn write_temp_patch(diff: &str) -> io::Result<(tempfile::TempDir, PathBuf)> {
 }
 
 fn run_git(cwd: &Path, git_cfg: &[String], args: &[String]) -> io::Result<(i32, String, String)> {
-    let mut cmd = std::process::Command::new("git");
+    let mut cmd = codex_utils_process::background_command("git");
     for p in git_cfg {
         cmd.arg(p);
     }
@@ -335,7 +335,7 @@ pub fn stage_paths(git_root: &Path, diff: &str) -> io::Result<()> {
     if existing.is_empty() {
         return Ok(());
     }
-    let mut cmd = std::process::Command::new("git");
+    let mut cmd = codex_utils_process::background_command("git");
     cmd.args(["-c", crate::SAFE_BARE_REPOSITORY_CONFIG]);
     cmd.arg("add");
     cmd.arg("--");

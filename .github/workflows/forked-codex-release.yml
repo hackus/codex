@@ -41,6 +41,14 @@ jobs:
           restore-keys: |
             forked-codex-windows-x64-
 
+      - name: Verify background processes stay console-free
+        shell: pwsh
+        run: |
+          cargo test --locked -p codex-utils-process --lib
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p codex-utils-pty --lib console
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Select and embed fork release version
         id: version
         shell: pwsh
@@ -72,6 +80,7 @@ jobs:
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "version=$codexVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
+
       - name: Build codex.exe
         shell: bash
         run: |
@@ -100,7 +109,7 @@ jobs:
           }
           $versionOutput | Out-File -FilePath "$assetDir/codex-version.txt" -Encoding utf8
           @{
-            patch = "windows-powershell-parser-console"
+            patch = "windows-background-process-consoles"
             commit = "${{ github.sha }}"
             branch = "${{ github.ref_name }}"
             version = $codexVersion
@@ -120,7 +129,7 @@ jobs:
           set -euo pipefail
           notes="${RUNNER_TEMP}/forked-codex-release-notes.md"
           cat > "$notes" <<'EOF'
-            Temporary Windows Codex build from hackus/codex with the PowerShell parser console fix.
+            Temporary Windows Codex build from hackus/codex with audited windowless background-process launches.
 
             H-Codex downloads `codex.exe` from this release when users run `/switch_to_forked_codex`.
             Users can return to the official Codex install with `/switch_to_official_codex`.
@@ -136,7 +145,7 @@ jobs:
               --clobber
             gh release edit "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Forked Codex $CODEX_VERSION Windows PowerShell parser console fix" \
+              --title "Forked Codex $CODEX_VERSION Windows background process console fixes" \
               --notes-file "$notes" \
               --latest
           else
@@ -148,7 +157,7 @@ jobs:
               ../dist/forked-codex/forked-codex-manifest.json \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "Forked Codex $CODEX_VERSION Windows PowerShell parser console fix" \
+              --title "Forked Codex $CODEX_VERSION Windows background process console fixes" \
               --notes-file "$notes" \
               --latest
           fi

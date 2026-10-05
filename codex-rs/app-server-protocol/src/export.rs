@@ -36,7 +36,6 @@ use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Command;
 use std::thread;
 
 #[path = "export_user_verification.rs"]
@@ -182,7 +181,7 @@ pub fn generate_ts_with_options(
         && let Some(prettier_bin) = prettier
         && !ts_files.is_empty()
     {
-        let status = Command::new(prettier_bin)
+        let status = codex_utils_process::background_command(prettier_bin)
             .arg("--write")
             .arg("--log-level")
             .arg("warn")

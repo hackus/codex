@@ -13,6 +13,7 @@ doctest = false
 workspace = true
 
 [dependencies]
+codex-utils-process = { workspace = true }
 anyhow = { workspace = true }
 codex-experimental-api-macros = { workspace = true }
 codex-app-server-protocol-noop-macros = { workspace = true }

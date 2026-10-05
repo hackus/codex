@@ -9,7 +9,6 @@ use std::io::Cursor;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Command;
 
 pub(crate) const GENERATED_TS_HEADER: &str = "// GENERATED CODE! DO NOT MODIFY BY HAND!\n\n";
 const STABLE_EXPORTS: &[u8] =
@@ -76,7 +75,7 @@ pub fn generate_ts_with_options(
         && let Some(prettier_bin) = prettier
         && !ts_files.is_empty()
     {
-        let status = Command::new(prettier_bin)
+        let status = codex_utils_process::background_command(prettier_bin)
             .arg("--write")
             .arg("--log-level")
             .arg("warn")

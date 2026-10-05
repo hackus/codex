@@ -108,11 +108,11 @@ pub unsafe fn create_process_as_user(
     let mut pi: PROCESS_INFORMATION = std::mem::zeroed();
     let cwd_wide = to_wide(cwd);
     let env_block_len = env_block.len();
-    let console_flags = match (&stdio, console_mode) {
-        (Some(_), ConsoleMode::NoWindow) => CREATE_NO_WINDOW,
-        (Some(_), ConsoleMode::Inherit)
-        | (None, ConsoleMode::Inherit)
-        | (None, ConsoleMode::NoWindow) => 0,
+    // Console policy is independent of whether stdio was supplied explicitly.
+    // Inheriting pipe handles from a detached parent must not allocate a console.
+    let console_flags = match console_mode {
+        ConsoleMode::NoWindow => CREATE_NO_WINDOW,
+        ConsoleMode::Inherit => 0,
     };
     let preserve_app_context = crate::app_package::current_process_has_package_identity()?;
     let attr_count = if stdio.is_some() { 2 } else { 1 } + u32::from(preserve_app_context);

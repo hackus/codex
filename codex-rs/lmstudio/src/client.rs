@@ -174,7 +174,7 @@ impl LMStudioClient {
         let lms = Self::find_lms()?;
         eprintln!("Downloading model: {model}");
 
-        let status = std::process::Command::new(&lms)
+        let status = codex_utils_process::background_command(&lms)
             .args(["get", "--yes", model])
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::null())

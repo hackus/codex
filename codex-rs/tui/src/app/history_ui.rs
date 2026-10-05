@@ -436,7 +436,7 @@ fn open_desktop_thread_url(url: &str) -> Result<(), String> {
 #[cfg(target_os = "windows")]
 fn open_desktop_thread_url(url: &str) -> Result<(), String> {
     let script = windows_desktop_app_launch_script(url);
-    let output = std::process::Command::new("powershell.exe")
+    let output = codex_utils_process::background_command("powershell.exe")
         .arg("-NoProfile")
         .arg("-Command")
         .arg(&script)

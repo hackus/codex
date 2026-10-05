@@ -216,7 +216,7 @@ impl EnvironmentHttp for RouteAwareClientPool {
 
 fn get_git_origins() -> Vec<SanitizedGitUrl> {
     // Prefer: git config --get-regexp remote\..*\.url
-    let out = std::process::Command::new("git")
+    let out = codex_utils_process::background_command("git")
         .args(["-c", codex_git_utils::SAFE_BARE_REPOSITORY_CONFIG])
         .args(["config", "--get-regexp", "remote\\..*\\.url"])
         .output();
@@ -237,7 +237,7 @@ fn get_git_origins() -> Vec<SanitizedGitUrl> {
         }
     }
     // Fallback: git remote -v
-    let out = std::process::Command::new("git")
+    let out = codex_utils_process::background_command("git")
         .args(["-c", codex_git_utils::SAFE_BARE_REPOSITORY_CONFIG])
         .args(["remote", "-v"])
         .output();

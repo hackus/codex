@@ -119,7 +119,7 @@ impl PidBackend {
             && matches!(
                 tokio::time::timeout(
                     std::time::Duration::from_secs(5),
-                    Command::new(&codex_bin)
+                    Command::from(codex_utils_process::background_command(&codex_bin))
                         .args(["app-server", "--managed-daemon", "--help"])
                         .stdin(Stdio::null())
                         .stdout(Stdio::null())

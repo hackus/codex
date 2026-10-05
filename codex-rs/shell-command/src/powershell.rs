@@ -105,7 +105,7 @@ pub fn try_find_powershell_executable_blocking() -> Option<AbsolutePathBuf> {
 /// has installed pwsh.exe, it may not be available in the system PATH, in which
 /// case we attempt to locate it via other means.
 pub fn try_find_pwsh_executable_blocking() -> Option<AbsolutePathBuf> {
-    if let Some(ps_home) = std::process::Command::new("cmd")
+    if let Some(ps_home) = codex_utils_process::background_command("cmd")
         .args(["/C", "pwsh", "-NoProfile", "-Command", "$PSHOME"])
         .output()
         .ok()
@@ -150,7 +150,7 @@ fn try_find_powershellish_executable_in_path(candidates: &[&str]) -> Option<Abso
 
 fn is_powershellish_executable_available(powershell_or_pwsh_exe: &std::path::Path) -> bool {
     // This test works for both powershell.exe and pwsh.exe.
-    std::process::Command::new(powershell_or_pwsh_exe)
+    codex_utils_process::background_command(powershell_or_pwsh_exe)
         .args(["-NoLogo", "-NoProfile", "-Command", "Write-Output ok"])
         .output()
         .map(|output| output.status.success())
